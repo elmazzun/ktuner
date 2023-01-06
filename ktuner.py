@@ -15,7 +15,7 @@ from tensorflow.keras.utils import plot_model
 # [X] Creo il tuner RandomSearch()
 # [X] Eseguo ipertuning tramite tuner.search()
 # [X] Addestro il modello con iperparametri trovati
-# [ ] Fai predizione con nuovo modello su x_test e y_label
+# [ ] Fai predizione con nuovo modello su x_test e y_test
 ###############################################################################
 
 # Per ogni esperimento, concedo training al modello per max EPOCHS epoche
@@ -141,7 +141,6 @@ print(f"""
 >>> Ricerca degli iperparametri completa.
 >>> Il learning rate ottimale per l'ottimizzatore è {best_hps.get('learning_rate')}.
 >>> Il numero ottimale di layers intermedi è {best_hps.get('num_layers')}.""")
-
 for layer in range(best_hps.get('num_layers')):
     print(f">>> Il numero ottimale di nodi nel layer {layer} è {best_hps.get('units_'+str(layer))}.")
 
