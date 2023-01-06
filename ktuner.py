@@ -11,10 +11,11 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.utils import plot_model
 
 ###############################################################################
-# 1. Definisco modello tramite funzione build_model()
-# 2. Creo il tuner RandomSearch()
-# 3. Eseguo ipertuning tramite tuner.search()
-# 4. Addestro il modello
+# [X] Definisco modello tramite funzione build_model()
+# [X] Creo il tuner RandomSearch()
+# [X] Eseguo ipertuning tramite tuner.search()
+# [X] Addestro il modello con iperparametri trovati
+# [ ] Fai predizione con nuovo modello su x_test e y_label
 ###############################################################################
 
 # Per ogni esperimento, concedo training al modello per max EPOCHS epoche
@@ -162,7 +163,7 @@ hypermodel = tuner.hypermodel.build(best_hps)
 # ...ma il train stavolta dura "best_epoch"
 history = hypermodel.fit(x_train, y_train, epochs=best_epoch)
 
-# evaluate() fornisce loss e 
+# evaluate() fornisce loss e le metriche passate a compile()
 print(">>> Infine valuto l'ipermodello ottenuto sui dati di test")
 eval_result = hypermodel.evaluate(x_test, y_test)
 print("[test loss, test accuracy]:", eval_result) 
