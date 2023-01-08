@@ -10,21 +10,31 @@ from keras_tuner import RandomSearch, Hyperband, BayesianOptimization
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.utils import plot_model
 
+# A seconda del diverso tipo di model cambiano i parametri permessi da fit(),
+# compile(), evaluate() e predict(): vedi
+#   https://www.tensorflow.org/api_docs/python/tf/keras/Model
+# per leggere parametri ammessi
+
 ###############################################################################
 # [X] Definisco modello tramite funzione build_model()
 # [X] Creo il tuner RandomSearch()
 # [X] Eseguo ipertuning tramite tuner.search()
 # [X] Addestro il modello con iperparametri trovati
-# [ ] Fai predizione con nuovo modello su x_test e y_test
+# [X] Fai predizione con nuovo modello su x_test e y_test
+
+# Notare che sto facendo training e test del modello su un dataset di test,
+# sarebbe forse meglio fare il test del modello su un altro dataset
+
 ###############################################################################
 
 # Per ogni esperimento, concedo training al modello per max EPOCHS epoche
-EPOCHS = 5
+EPOCHS = 50
+# Numero di campioni per batch
 BATCH_SIZE = 32
-# Se l'accuracy non migliora dopo 5 epochs, arresta il training del modello
-# con quegli iperparametri e procedi al training con il prossimo set di
-# iperparametri 
-EARLY_STOPPING_PATIENCE = 3
+# Se l'accuracy non migliora dopo EARLY_STOPPING_PATIENCE epochs, arresta il
+# training del modello con quegli iperparametri e procedi al training con il
+# prossimo set di iperparametri
+EARLY_STOPPING_PATIENCE = 5
 MAX_TRIALS = 10
 
 data = pd.read_csv(r"/home/amazzocchi/Downloads/train.csv") # Sistema path
@@ -39,7 +49,7 @@ data["Age"].fillna(age_median, inplace=True)
 
 x = data[["Pclass","Sex","Age","Parch"]]
 y = data["Survived"]
-print(x.ndim)
+
 x_train = x[:713]
 x_test = x[713:]
 y_train = y[:713]
@@ -48,6 +58,11 @@ y_test = y[713:]
 x_train = np.asarray(x_train).astype('float32')
 y_train = np.asarray(y_train).astype('float32')
 x_test = np.asarray(x_test).astype('float32')
+
+print(f">>> x_train shape: {x_train.shape}") # (713, 4)
+print(f">>> y_train shape: {y_train.shape}") # (713,)
+print(f">>> x_test shape: {x_test.shape}")   # (178, 4)
+print(f">>> y_test shape: {y_test.shape}")   # (178,)
 
 # Crea un modello per l'ipertuning, definendo lo spazio di ricerca degli
 # iperparametri oltre all'architettura del modello stesso
@@ -59,7 +74,7 @@ def build_model(hp):
     # Aggiungo un numero di layer intermedi compreso
     # tra MIN_HIDDEN_LAYERS_NUM e MAX_HIDDEN_LAYERS_NUM
     MIN_HIDDEN_LAYERS_NUM = 1
-    MAX_HIDDEN_LAYERS_NUM = 3
+    MAX_HIDDEN_LAYERS_NUM = 5
     # Per ogni layer intermedio, testo tale layer con un numero di nodi
     # compreso tra HIDDEN_LAYER_MIN_UNITS e HIDDEN_LAYER_MAX_UNITS
     HIDDEN_LAYER_MIN_UNITS = 32
@@ -90,6 +105,9 @@ def build_model(hp):
     # si possono testare multipli ottimizzatori
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate_func)
 
+    # compile() permette di specificare una loss function, un ottimizzatore
+    # e, opzionalmente, alcune metriche da monitorare (il modello può avere una
+    # lista di metriche
     model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
     return model
@@ -111,7 +129,8 @@ tuner = RandomSearch(
     build_model, # chiamo funzione definita sopra
     objective='val_accuracy',
     max_trials=MAX_TRIALS,
-    executions_per_trial=3)
+    executions_per_trial=3,
+    overwrite=True)
     # directory='my_dir',
     # project_name='test')
 
@@ -144,13 +163,13 @@ print(f"""
 for layer in range(best_hps.get('num_layers')):
     print(f">>> Il numero ottimale di nodi nel layer {layer} è {best_hps.get('units_'+str(layer))}.")
 
-print(">>> Trovo il numero ottimale di epochs con cui addestrare il modello usando"
-"gli iperparametri trovati da search")
+print(">>> Trovo il numero ottimale di epochs con cui addestrare il modello usando "
+ "gli iperparametri trovati da search")
 model = tuner.hypermodel.build(best_hps)
-history = model.fit(x_train, y_train, epochs=EPOCHS, verbose=1)
+history = model.fit(x_train, y_train, epochs=EPOCHS, verbose=0)
 
-print(">>> Ricreo l'ipermodello e lo addestro con il numero ottimale di epoche"
-"ottenuto sopra")
+print(">>> Ricreo l'ipermodello e lo addestro con il numero ottimale di epoche "
+ "ottenuto sopra")
 val_acc_per_epoch = history.history['accuracy']
 best_epoch = val_acc_per_epoch.index(max(val_acc_per_epoch)) + 1
 
@@ -158,11 +177,16 @@ best_epoch = val_acc_per_epoch.index(max(val_acc_per_epoch)) + 1
 print('>>> Best epoch: %d' % (best_epoch,))
 
 # Ricrea il modello con gli iperparametri trovati prima...
-hypermodel = tuner.hypermodel.build(best_hps)
+model = tuner.hypermodel.build(best_hps)
 # ...ma il train stavolta dura "best_epoch"
-history = hypermodel.fit(x_train, y_train, epochs=best_epoch)
+history = model.fit(x_train, y_train, epochs=best_epoch, verbose=0)
 
-# evaluate() fornisce loss e le metriche passate a compile()
+# evaluate() calcola loss e metriche passate a compile()
 print(">>> Infine valuto l'ipermodello ottenuto sui dati di test")
-eval_result = hypermodel.evaluate(x_test, y_test)
-print("[test loss, test accuracy]:", eval_result) 
+eval_result = model.evaluate(x_test, y_test)
+print(f">>> test loss: {eval_result[0]}, test accuracy: {eval_result[1]}")
+
+# predict() genera predizioni sui primi 3 campioni
+predictions = model.predict(x_test[:3])
+print(f"Predictions: {predictions}")
+print(f"Predictions shape: {predictions.shape}")
